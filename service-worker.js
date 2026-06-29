@@ -1,4 +1,4 @@
-const CACHE_NAME = 'number-match-pwa-v4';
+const CACHE_NAME = 'number-match-pwa-v6';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -26,6 +26,26 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  const isAppShell = url.pathname.endsWith('/') ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('/styles.css') ||
+    url.pathname.endsWith('/script.js') ||
+    url.pathname.endsWith('/manifest.webmanifest') ||
+    url.pathname.endsWith('/service-worker.js');
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;

@@ -9,10 +9,11 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Number Match" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="build-version" content="zoom6" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=zoom6" />
 </head>
 <body>
   <main class="phone-app">
@@ -128,7 +129,7 @@
     <div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
   </main>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=zoom6"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

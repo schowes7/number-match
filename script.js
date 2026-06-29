@@ -1431,7 +1431,7 @@ function renderBoard() {
       div.classList.add('empty');
       div.setAttribute('aria-hidden', 'true');
     } else {
-      div.textContent = cell.value;
+      div.dataset.value = String(cell.value);
       div.setAttribute('aria-label', cell.cleared ? `Cell ${index + 1}, cleared number ${cell.value}` : `Cell ${index + 1}, number ${cell.value}`);
       if (!cell.cleared) {
         div.setAttribute('role', 'button');
@@ -1654,43 +1654,69 @@ function setupBoardTouchHandling() {
 
 function preventGameDoubleTapZoom() {
   let lastTouchEnd = 0;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
 
+  const isInApp = target => target instanceof Element && !!target.closest('.phone-app');
+  const isInBoard = target => target instanceof Element && !!target.closest('.board-wrap, .board, .cell');
+
+  // iOS Safari is most stubborn when double-tapping text-like grid content. Own
+  // every board touch from the document capture phase before Safari can promote
+  // it into a smart/double-tap zoom gesture.
   document.addEventListener('touchstart', event => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (!target.closest('.phone-app')) return;
+    if (!isInApp(event.target)) return;
+    if (event.touches.length > 1 || isInBoard(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener('touchmove', event => {
+    if (!isInApp(event.target)) return;
+    if (event.scale && event.scale !== 1) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.touches.length > 1) {
       event.preventDefault();
       event.stopPropagation();
     }
   }, { passive: false, capture: true });
 
-  const preventZoomGesture = event => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (!target.closest('.phone-app')) return;
-
+  document.addEventListener('touchend', event => {
+    if (!isInApp(event.target)) return;
+    const touch = event.changedTouches && event.changedTouches[0];
     const now = Date.now();
-    if (target.closest('.board-wrap, .board, .cell') || now - lastTouchEnd <= 500) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    lastTouchEnd = now;
-  };
+    const x = touch ? touch.clientX : 0;
+    const y = touch ? touch.clientY : 0;
+    const closeInTime = now - lastTouchEnd <= 420;
+    const closeInSpace = Math.abs(x - lastTouchX) <= 42 && Math.abs(y - lastTouchY) <= 42;
 
-  document.addEventListener('touchend', preventZoomGesture, { passive: false, capture: true });
-  document.addEventListener('dblclick', event => {
-    const target = event.target;
-    if (target instanceof Element && target.closest('.phone-app')) {
+    if (isInBoard(event.target) || (closeInTime && closeInSpace)) {
       event.preventDefault();
       event.stopPropagation();
     }
-  }, { capture: true });
+
+    lastTouchEnd = now;
+    lastTouchX = x;
+    lastTouchY = y;
+  }, { passive: false, capture: true });
+
+  document.addEventListener('dblclick', event => {
+    if (isInApp(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false, capture: true });
 
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(name => {
     document.addEventListener(name, event => {
-      event.preventDefault();
-    }, { passive: false });
+      if (isInApp(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }, { passive: false, capture: true });
   });
 }
 setupBoardTouchHandling();
