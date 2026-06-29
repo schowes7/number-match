@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Number Match</title>
+  <meta name="theme-color" content="#f7f9fc" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Number Match" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="phone-app">
+    <section id="homeScreen" class="home-screen">
+      <div class="home-header">
+        <div class="home-kicker">Number Match</div>
+        <h1>Choose Difficulty</h1>
+        <p>Clear equal pairs or pairs that add to 10. Every stage is random-looking but checked for a full solution path.</p>
+      </div>
+
+      <div class="difficulty-menu" aria-label="Select difficulty">
+        <button class="difficulty-card" data-difficulty="test">
+          <span class="difficulty-name">Test</span>
+          <span class="difficulty-description">Very easy boards for testing animations and mechanics.</span>
+        </button>
+        <button class="difficulty-card" data-difficulty="basic">
+          <span class="difficulty-name">Basic</span>
+          <span class="difficulty-description">42 numbers with a few opening moves.</span>
+        </button>
+        <button class="difficulty-card" data-difficulty="medium">
+          <span class="difficulty-name">Medium</span>
+          <span class="difficulty-description">44 numbers with fewer obvious starts. 2× scoring.</span>
+        </button>
+        <button class="difficulty-card" data-difficulty="hard">
+          <span class="difficulty-name">Hard</span>
+          <span class="difficulty-description">44 numbers with harder openings. 3× scoring.</span>
+        </button>
+        <button class="difficulty-card" data-difficulty="expert">
+          <span class="difficulty-name">Expert</span>
+          <span class="difficulty-description">44 numbers, only 4 adds. 4× scoring.</span>
+        </button>
+        <button class="difficulty-card" data-difficulty="master">
+          <span class="difficulty-name">Master</span>
+          <span class="difficulty-description">53 numbers, only 4 adds. 5× scoring.</span>
+        </button>
+      </div>
+
+      <div class="home-best">
+        <span>All Time</span>
+        <strong><span class="trophy" aria-hidden="true">🏆</span><span id="homeBestScore">0</span></strong>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="game-screen hidden">
+      <section class="top-bar">
+        <button id="backBtn" class="icon-button" aria-label="Back to home">‹</button>
+      </section>
+
+      <section class="score-block">
+        <div id="score" class="score">0</div>
+      </section>
+
+      <section class="status-grid" aria-label="Stage status">
+        <div id="difficulty" class="difficulty status-left">Medium</div>
+        <div class="score-label status-center">Numbers Cleared</div>
+        <div class="all-time-label status-right">All Time</div>
+
+        <div id="stage" class="stage status-left">Stage 1</div>
+        <div class="digits status-center" id="digitsRow" aria-label="Numbers cleared tracker"></div>
+        <div class="all-time-score status-right"><span class="trophy" aria-hidden="true">🏆</span><span id="bestScore">0</span></div>
+      </section>
+
+      <section class="board-wrap" id="boardWrap">
+        <div id="board" class="board" aria-label="Number board"></div>
+      </section>
+
+      <section class="message" id="message">Find equal pairs or pairs that add to 10.</section>
+
+      <section class="controls">
+        <button id="addBtn" class="round-button add-button" aria-label="Add numbers">
+          <span class="button-badge" id="addCount">5</span>
+          <svg class="button-icon plus-icon" viewBox="0 0 44 44" aria-hidden="true">
+            <path d="M22 10v24M10 22h24" />
+          </svg>
+        </button>
+        <button id="hintBtn" class="round-button hint-button" aria-label="Hint">
+          <span class="button-badge hint-badge">∞</span>
+          <svg class="button-icon bulb-icon" viewBox="0 0 44 44" aria-hidden="true">
+            <path d="M22 7c-7 0-12 5.1-12 11.5 0 4.5 2.4 7.2 5 9.5 1.8 1.7 2.5 3.3 2.5 5h9c0-1.7.7-3.3 2.5-5 2.6-2.3 5-5 5-9.5C34 12.1 29 7 22 7Z" />
+            <path d="M18 36h8M19 40h6" />
+            <path d="M22 13c-3.2 0-5.5 2.3-5.5 5.5" />
+          </svg>
+        </button>
+      </section>
+
+      <section class="rules-card">
+        <b>Scoring</b>
+        <span id="rulesText">Basic Stage 1: Adjacent +1 • wrap +2 • separated +4 • line +10 • field +150. Scores scale by stage and difficulty.</span>
+      </section>
+
+      <section class="copy-board-section">
+        <button id="copyBoardBtn" class="copy-board-button" type="button">Copy Board State</button>
+      </section>
+    </section>
+
+    <section id="gameOverScreen" class="game-over-screen hidden" aria-label="Game completed">
+      <div class="game-over-rays" aria-hidden="true"></div>
+      <div class="game-over-content">
+        <div class="game-over-head">
+          <div class="game-over-title">Game Completed</div>
+          <div id="gameOverScore" class="game-over-score">0</div>
+        </div>
+        <div class="game-over-board-card">
+          <div id="gameOverBoard" class="game-over-mini-board" aria-label="Final board"></div>
+        </div>
+        <div class="game-over-actions">
+          <button id="gameOverNewGame" class="game-over-button primary">New Game</button>
+          <button id="gameOverMain" class="game-over-button secondary">Main</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
