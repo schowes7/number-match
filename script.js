@@ -1435,7 +1435,13 @@ function renderBoard() {
       div.textContent = cell.value;
       div.setAttribute('aria-label', cell.cleared ? `Cell ${index + 1}, cleared number ${cell.value}` : `Cell ${index + 1}, number ${cell.value}`);
       if (!cell.cleared) {
+        div.addEventListener('touchstart', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          handleCellClick(index);
+        }, { passive: false });
         div.addEventListener('pointerdown', event => {
+          if (event.pointerType === 'touch') return;
           event.preventDefault();
           handleCellClick(index);
         });
@@ -1582,17 +1588,33 @@ function endGameToHome() {
 
 function preventGameDoubleTapZoom() {
   let lastTouchEnd = 0;
-  document.addEventListener('touchend', event => {
+  const preventZoomGesture = event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (!target.closest('.phone-app')) return;
 
     const now = Date.now();
-    if (now - lastTouchEnd <= 350) {
+    if (now - lastTouchEnd <= 450) {
       event.preventDefault();
+      event.stopPropagation();
     }
     lastTouchEnd = now;
-  }, { passive: false });
+  };
+
+  document.addEventListener('touchend', preventZoomGesture, { passive: false, capture: true });
+  document.addEventListener('dblclick', event => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('.phone-app')) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { capture: true });
+
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(name => {
+    document.addEventListener(name, event => {
+      event.preventDefault();
+    }, { passive: false });
+  });
 }
 
 preventGameDoubleTapZoom();

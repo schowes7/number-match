@@ -18,6 +18,7 @@
 html {
   touch-action: manipulation;
   overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -58,6 +59,18 @@ button {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+
+.board-wrap,
+.board,
+.cell {
+  touch-action: none;
+  -ms-touch-action: none;
+}
+
+.cell {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .top-bar {
