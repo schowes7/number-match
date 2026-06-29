@@ -1665,7 +1665,16 @@ function preventGameDoubleTapZoom() {
   // it into a smart/double-tap zoom gesture.
   document.addEventListener('touchstart', event => {
     if (!isInApp(event.target)) return;
-    if (event.touches.length > 1 || isInBoard(event.target)) {
+
+    // Do not stop propagation for board touches. The board's own touch handler
+    // still needs to receive the event so it can select cells. We only prevent
+    // Safari's default zoom behavior.
+    if (isInBoard(event.target)) {
+      event.preventDefault();
+      return;
+    }
+
+    if (event.touches.length > 1) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -1692,8 +1701,13 @@ function preventGameDoubleTapZoom() {
     const y = touch ? touch.clientY : 0;
     const closeInTime = now - lastTouchEnd <= 420;
     const closeInSpace = Math.abs(x - lastTouchX) <= 42 && Math.abs(y - lastTouchY) <= 42;
+    const boardTouch = isInBoard(event.target);
 
-    if (isInBoard(event.target) || (closeInTime && closeInSpace)) {
+    if (boardTouch) {
+      // Prevent iOS double-tap/smart zoom, but let the board touchend handler
+      // run afterward so fast taps still select numbers.
+      event.preventDefault();
+    } else if (closeInTime && closeInSpace) {
       event.preventDefault();
       event.stopPropagation();
     }
