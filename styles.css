@@ -379,13 +379,14 @@ button {
   background: rgba(255,255,255,0.82);
 }
 
-.cell.selected {
-  background: var(--selected);
+.cell.hint {
+  background: #e3e8ef;
+  color: #6B7280;
 }
 
-.cell.hint {
+.cell.selected {
   background: var(--blue-soft);
-  color: #0b141d;
+  color: var(--blue);
 }
 
 .cell.added {
@@ -425,8 +426,13 @@ button {
   color: #000000;
 }
 
-.cell.bad {
-  animation: shake 220ms ease both;
+.cell.bad,
+.cell.blocked {
+  animation: shake 260ms ease both;
+}
+
+.cell.blocked {
+  color: #6B7280;
 }
 
 @keyframes pop {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'number-match-pwa-v7';
+const CACHE_NAME = 'number-match-pwa-v8';
 const APP_ASSETS = [
   './',
   './index.html',

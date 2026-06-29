@@ -149,6 +149,7 @@ const state = {
   selected: null,
   hintPair: null,
   badPair: [],
+  blockedCells: [],
   matchingPair: [],
   clearingPair: [],
   lineClearingCellIds: new Set(),
@@ -530,6 +531,7 @@ function startStage(stageNumber, options = {}) {
   state.selected = null;
   state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
   state.matchingPair = [];
   state.clearingPair = [];
   state.lineClearingCellIds = new Set();
@@ -623,6 +625,59 @@ function hasDirectionalPath(a, b) {
 
 function valuesCanPair(a, b) {
   return a === b || a + b === 10;
+}
+
+function activeBlockersBetweenLinear(a, b) {
+  const blockers = [];
+  const step = a < b ? 1 : -1;
+  for (let i = a + step; i !== b; i += step) {
+    const cell = state.board[i];
+    if (cell && !cell.cleared) blockers.push(i);
+  }
+  return blockers;
+}
+
+function activeBlockersBetweenDirectional(a, b, dr, dc) {
+  const blockers = [];
+  let r = rowOf(a) + dr;
+  let c = colOf(a) + dc;
+  const targetR = rowOf(b);
+  const targetC = colOf(b);
+
+  while (r !== targetR || c !== targetC) {
+    const i = r * COLS + c;
+    const cell = state.board[i];
+    if (cell && !cell.cleared) blockers.push(i);
+    r += dr;
+    c += dc;
+  }
+
+  return blockers;
+}
+
+function getBlockingCellsForPair(a, b) {
+  const r1 = rowOf(a), c1 = colOf(a);
+  const r2 = rowOf(b), c2 = colOf(b);
+  const drRaw = r2 - r1;
+  const dcRaw = c2 - c1;
+
+  // If the two numbers are on a straight playable line, show the blockers on
+  // that line instead of every cell in reading order.
+  if (r1 === r2) {
+    return activeBlockersBetweenDirectional(a, b, 0, dcRaw > 0 ? 1 : -1);
+  }
+
+  if (c1 === c2) {
+    return activeBlockersBetweenDirectional(a, b, drRaw > 0 ? 1 : -1, 0);
+  }
+
+  if (Math.abs(drRaw) === Math.abs(dcRaw)) {
+    return activeBlockersBetweenDirectional(a, b, drRaw > 0 ? 1 : -1, dcRaw > 0 ? 1 : -1);
+  }
+
+  // Otherwise, the only possible connection would be the reading-order wrap
+  // path, so jiggle the active numbers sitting between them in reading order.
+  return activeBlockersBetweenLinear(a, b);
 }
 
 function classifyPair(a, b) {
@@ -1175,6 +1230,7 @@ async function clearPair(a, b, result) {
   state.selected = null;
   state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
   state.matchingPair = [];
   state.clearingPair = [a, b];
   state.justAddedStart = -1;
@@ -1271,9 +1327,8 @@ function handleCellClick(index) {
   const cell = state.board[index];
   if (!cell || cell.cleared) return;
 
-
-  state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
 
   if (state.selected === null) {
     state.selected = index;
@@ -1289,19 +1344,38 @@ function handleCellClick(index) {
 
   const a = state.selected;
   const b = index;
+  const cellA = state.board[a];
+  const cellB = state.board[b];
+
+  // If the values cannot pair at all, move the selection to the newest number.
+  if (!cellA || !cellB || !valuesCanPair(cellA.value, cellB.value)) {
+    state.selected = b;
+    updateMessage(`Selected ${cellB.value}. Find the same number or one that adds to 10.`);
+    render();
+    return;
+  }
+
   const result = classifyPair(a, b);
   if (result.valid) {
     clearPair(a, b, result);
-  } else {
-    state.badPair = [a, b];
-    updateMessage('Those two do not connect. The spaces between them must be clear.');
-    render();
-    setTimeout(() => {
-      state.badPair = [];
-      render();
-    }, 280);
+    return;
   }
+
+  // Same/add-to-10 values that cannot connect are blocked. Jiggle the active
+  // numbers in the way, then clear the selection.
+  const blockers = getBlockingCellsForPair(a, b);
+  state.selected = null;
+  state.blockedCells = blockers.length ? blockers : [a, b];
+  updateMessage(blockers.length
+    ? 'Those numbers match, but the numbers in the way must be cleared first.'
+    : 'Those numbers match, but they do not connect from here.');
+  render();
+  setTimeout(() => {
+    state.blockedCells = [];
+    render();
+  }, 360);
 }
+
 
 async function addMoreNumbers() {
   if (controlsLocked()) return;
@@ -1332,8 +1406,8 @@ async function addMoreNumbers() {
   state.addsRemaining -= 1;
   state.addAnimating = true;
   state.selected = null;
-  state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
   state.matchingPair = [];
   state.clearingPair = [];
   state.justAddedStart = -1;
@@ -1375,6 +1449,7 @@ function loseStage() {
   state.selected = null;
   state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
   state.matchingPair = [];
   state.clearingPair = [];
   state.justAddedStart = -1;
@@ -1446,6 +1521,7 @@ function renderBoard() {
       if (state.selected === index) div.classList.add('selected');
       if (state.hintPair && state.hintPair.includes(index)) div.classList.add('hint');
       if (state.badPair.includes(index)) div.classList.add('bad');
+      if (state.blockedCells.includes(index)) div.classList.add('blocked');
       if (state.matchingPair.includes(index)) div.classList.add('matching');
       if (state.clearingPair.includes(index)) div.classList.add('clearing');
       if (state.lineClearingCellIds.has(cell.id)) {
@@ -1532,6 +1608,7 @@ function showHome() {
   state.selected = null;
   state.hintPair = null;
   state.badPair = [];
+  state.blockedCells = [];
   state.matchingPair = [];
   state.clearingPair = [];
   state.lineClearingCellIds = new Set();
