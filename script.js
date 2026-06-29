@@ -1434,7 +1434,12 @@ function renderBoard() {
     } else {
       div.textContent = cell.value;
       div.setAttribute('aria-label', cell.cleared ? `Cell ${index + 1}, cleared number ${cell.value}` : `Cell ${index + 1}, number ${cell.value}`);
-      if (!cell.cleared) div.addEventListener('click', () => handleCellClick(index));
+      if (!cell.cleared) {
+        div.addEventListener('pointerdown', event => {
+          event.preventDefault();
+          handleCellClick(index);
+        });
+      }
       if (cell.cleared) div.classList.add('cleared');
       if (state.selected === index) div.classList.add('selected');
       if (state.hintPair && state.hintPair.includes(index)) div.classList.add('hint');
@@ -1574,6 +1579,23 @@ function startGame(difficultyKey) {
 function endGameToHome() {
   showHome();
 }
+
+function preventGameDoubleTapZoom() {
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest('.phone-app')) return;
+
+    const now = Date.now();
+    if (now - lastTouchEnd <= 350) {
+      event.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+}
+
+preventGameDoubleTapZoom();
 
 els.addBtn.addEventListener('click', addMoreNumbers);
 els.hintBtn.addEventListener('click', useHint);
