@@ -1101,3 +1101,15 @@ button {
 .difficulty-card:disabled .difficulty-status {
   color: #2d8ff0;
 }
+
+
+/* Extra iOS Safari anti-zoom hardening for the number grid. */
+.board-wrap,
+.board,
+.cell {
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}

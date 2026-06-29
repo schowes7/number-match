@@ -1423,8 +1423,7 @@ function renderBoard() {
   const totalCells = Math.max(COLS * 7, Math.ceil(state.board.length / COLS) * COLS);
   for (let index = 0; index < totalCells; index += 1) {
     const cell = state.board[index];
-    const div = document.createElement('button');
-    div.type = 'button';
+    const div = document.createElement('div');
     div.className = 'cell';
     div.dataset.index = String(index);
 
@@ -1435,11 +1434,8 @@ function renderBoard() {
       div.textContent = cell.value;
       div.setAttribute('aria-label', cell.cleared ? `Cell ${index + 1}, cleared number ${cell.value}` : `Cell ${index + 1}, number ${cell.value}`);
       if (!cell.cleared) {
-        div.addEventListener('touchstart', event => {
-          event.preventDefault();
-          event.stopPropagation();
-          handleCellClick(index);
-        }, { passive: false });
+        div.setAttribute('role', 'button');
+        div.tabIndex = -1;
         div.addEventListener('pointerdown', event => {
           if (event.pointerType === 'touch') return;
           event.preventDefault();
@@ -1586,15 +1582,96 @@ function endGameToHome() {
   showHome();
 }
 
+
+let activeBoardTouch = null;
+
+function cellIndexFromTouchTarget(target) {
+  if (!(target instanceof Element)) return null;
+  const cell = target.closest('.cell');
+  if (!cell || !els.board.contains(cell)) return null;
+  const index = Number(cell.dataset.index);
+  return Number.isFinite(index) ? index : null;
+}
+
+function setupBoardTouchHandling() {
+  if (!els.board || !els.boardWrap) return;
+
+  els.board.addEventListener('touchstart', event => {
+    const index = cellIndexFromTouchTarget(event.target);
+    if (index === null || event.touches.length !== 1) return;
+
+    // iOS Safari can still double-tap zoom inside dense text grids unless the
+    // board owns the touch sequence from the capture phase.
+    event.preventDefault();
+    event.stopPropagation();
+
+    const touch = event.touches[0];
+    activeBoardTouch = {
+      index,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastX: touch.clientX,
+      lastY: touch.clientY,
+      startScrollTop: els.boardWrap.scrollTop,
+      moved: false,
+    };
+  }, { passive: false, capture: true });
+
+  els.board.addEventListener('touchmove', event => {
+    if (!activeBoardTouch || event.touches.length !== 1) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const touch = event.touches[0];
+    const dx = touch.clientX - activeBoardTouch.startX;
+    const dy = touch.clientY - activeBoardTouch.startY;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) activeBoardTouch.moved = true;
+
+    // Since we prevent Safari's default behavior to block double-tap zoom,
+    // manually preserve vertical board scrolling for tall boards.
+    els.boardWrap.scrollTop = activeBoardTouch.startScrollTop - dy;
+    activeBoardTouch.lastX = touch.clientX;
+    activeBoardTouch.lastY = touch.clientY;
+  }, { passive: false, capture: true });
+
+  els.board.addEventListener('touchend', event => {
+    if (!activeBoardTouch) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const { index, moved } = activeBoardTouch;
+    activeBoardTouch = null;
+    if (!moved) handleCellClick(index);
+  }, { passive: false, capture: true });
+
+  els.board.addEventListener('touchcancel', event => {
+    if (!activeBoardTouch) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeBoardTouch = null;
+  }, { passive: false, capture: true });
+}
+
 function preventGameDoubleTapZoom() {
   let lastTouchEnd = 0;
+
+  document.addEventListener('touchstart', event => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest('.phone-app')) return;
+    if (event.touches.length > 1) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false, capture: true });
+
   const preventZoomGesture = event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (!target.closest('.phone-app')) return;
 
     const now = Date.now();
-    if (now - lastTouchEnd <= 450) {
+    if (target.closest('.board-wrap, .board, .cell') || now - lastTouchEnd <= 500) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -1616,7 +1693,7 @@ function preventGameDoubleTapZoom() {
     }, { passive: false });
   });
 }
-
+setupBoardTouchHandling();
 preventGameDoubleTapZoom();
 
 els.addBtn.addEventListener('click', addMoreNumbers);
