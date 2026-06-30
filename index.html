@@ -9,24 +9,24 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Number Match" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="build-version" content="darkfit15" />
+  <meta name="build-version" content="tutorial18" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css?v=darkfit15" />
+  <link rel="stylesheet" href="styles.css?v=tutorial18" />
 </head>
 <body>
   <main class="phone-app">
     <section id="homeScreen" class="home-screen">
       <div class="home-header">
-        <div class="home-kicker">Number Match</div>
-        <h1>Pair. Clear. Climb.</h1>
-        <p>A cleaner, faster version focused on the grid. Match equals or sums of 10, clear stages, and chase your best score.</p>
+        <div class="home-kicker">Puzzle Game</div>
+        <h1>Number Match</h1>
+        <p>Match equal numbers or pairs that add to 10. Clear lines, finish stages, and build your highest score.</p>
       </div>
 
-      <button id="themeToggleBtn" class="theme-toggle-button" type="button" aria-pressed="false">
-        <span>Dark Mode</span>
-        <strong id="themeToggleStatus">Off</strong>
+      <button id="homeSettingsBtn" class="settings-nav-button" type="button">
+        <span>Settings</span>
+        <strong>Dark Mode & Tutorial</strong>
       </button>
 
       <div class="difficulty-menu" aria-label="Select difficulty">
@@ -64,6 +64,43 @@
       <div class="home-best">
         <span>All Time</span>
         <strong><span class="trophy" aria-hidden="true">🏆</span><span id="homeBestScore">0</span></strong>
+      </div>
+    </section>
+
+    <section id="settingsScreen" class="settings-screen hidden" aria-label="Settings">
+      <section class="settings-top-bar">
+        <button id="settingsBackBtn" class="icon-button" aria-label="Back to home">‹</button>
+      </section>
+
+      <div class="settings-header">
+        <div class="home-kicker">Settings</div>
+        <h1>Game Options</h1>
+        <p>Change the look of the game and review the basics anytime.</p>
+      </div>
+
+      <div class="settings-stack">
+        <section class="settings-card">
+          <div class="settings-card-head">
+            <div>
+              <h2>Appearance</h2>
+              <p>Switch between the light theme and a matching dark theme.</p>
+            </div>
+          </div>
+          <button id="themeToggleBtn" class="theme-toggle-button" type="button" aria-pressed="false">
+            <span>Dark Mode</span>
+            <strong id="themeToggleStatus">Off</strong>
+          </button>
+        </section>
+
+        <section class="settings-card tutorial-card">
+          <div class="settings-card-head">
+            <div>
+              <h2>How to Play</h2>
+              <p>Open the interactive tutorial to practice matching and review the game features.</p>
+            </div>
+          </div>
+          <button id="tutorialOpenBtn" class="settings-secondary-button" type="button">Play Interactive Tutorial</button>
+        </section>
       </div>
     </section>
 
@@ -147,6 +184,24 @@
     </section>
 
 
+    <div id="tutorialModal" class="confirm-modal tutorial-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tutorialStepTitle">
+      <div class="confirm-card tutorial-modal-card interactive-tutorial-card">
+        <div class="tutorial-step-top">
+          <span id="tutorialStepLabel" class="tutorial-step-label">Step 1 of 8</span>
+          <button id="tutorialSkipBtn" class="tutorial-skip-button" type="button">Skip</button>
+        </div>
+        <div id="tutorialProgress" class="tutorial-progress-dots" aria-hidden="true"></div>
+        <h2 id="tutorialStepTitle">How to Play</h2>
+        <p id="tutorialStepText" class="tutorial-intro">Match pairs, clear the board, and keep climbing through stages.</p>
+        <div id="tutorialDemo" class="tutorial-demo" aria-live="polite"></div>
+        <p id="tutorialStepTip" class="tutorial-step-tip"></p>
+        <div class="tutorial-nav-actions">
+          <button id="tutorialBackStepBtn" class="confirm-button secondary" type="button">Back</button>
+          <button id="tutorialNextStepBtn" class="confirm-button primary" type="button">Next</button>
+        </div>
+      </div>
+    </div>
+
     <div id="confirmNewGameModal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmNewGameTitle">
       <div class="confirm-card">
         <h2 id="confirmNewGameTitle">Are You Sure?</h2>
@@ -161,7 +216,7 @@
     <div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
   </main>
 
-  <script src="script.js?v=darkfit15"></script>
+  <script src="script.js?v=tutorial18"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

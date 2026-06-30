@@ -78,6 +78,17 @@ const UNLOCK_REQUIREMENTS = {
 const DIFFICULTY_BEST_STORAGE_PREFIX = 'numberMatchBestDifficulty:';
 const CURRENT_GAME_STORAGE_KEY = 'numberMatchCurrentGame:v1';
 const THEME_STORAGE_KEY = 'numberMatchTheme:v1';
+const TUTORIAL_SEEN_STORAGE_KEY = 'numberMatchTutorialSeen:v2';
+const THEME_LIGHT_START_STORAGE_KEY = 'numberMatchThemeLightStart:v18';
+
+// This version starts in light mode once, even if an older build saved dark mode.
+// After that, the Settings toggle saves the user's choice normally.
+try {
+  if (localStorage.getItem(THEME_LIGHT_START_STORAGE_KEY) !== '1') {
+    localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    localStorage.setItem(THEME_LIGHT_START_STORAGE_KEY, '1');
+  }
+} catch (error) {}
 
 const DIFFICULTY_ORDER = ['test', 'basic', 'medium', 'hard', 'expert', 'master'];
 
@@ -116,6 +127,7 @@ function saveDifficultyBest(key, score) {
 const els = {
   app: document.querySelector('.phone-app'),
   homeScreen: document.getElementById('homeScreen'),
+  settingsScreen: document.getElementById('settingsScreen'),
   gameScreen: document.getElementById('gameScreen'),
   gameOverScreen: document.getElementById('gameOverScreen'),
   gameOverBoard: document.getElementById('gameOverBoard'),
@@ -132,8 +144,21 @@ const els = {
   continueGameBtn: document.getElementById('continueGameBtn'),
   continueDescription: document.getElementById('continueDescription'),
   continueStatus: document.getElementById('continueStatus'),
+  homeSettingsBtn: document.getElementById('homeSettingsBtn'),
+  settingsBackBtn: document.getElementById('settingsBackBtn'),
   themeToggleBtn: document.getElementById('themeToggleBtn'),
   themeToggleStatus: document.getElementById('themeToggleStatus'),
+  tutorialModal: document.getElementById('tutorialModal'),
+  tutorialOpenBtn: document.getElementById('tutorialOpenBtn'),
+  tutorialStepLabel: document.getElementById('tutorialStepLabel'),
+  tutorialProgress: document.getElementById('tutorialProgress'),
+  tutorialStepTitle: document.getElementById('tutorialStepTitle'),
+  tutorialStepText: document.getElementById('tutorialStepText'),
+  tutorialDemo: document.getElementById('tutorialDemo'),
+  tutorialStepTip: document.getElementById('tutorialStepTip'),
+  tutorialBackStepBtn: document.getElementById('tutorialBackStepBtn'),
+  tutorialNextStepBtn: document.getElementById('tutorialNextStepBtn'),
+  tutorialSkipBtn: document.getElementById('tutorialSkipBtn'),
   stage: document.getElementById('stage'),
   difficulty: document.getElementById('difficulty'),
   digitsRow: document.getElementById('digitsRow'),
@@ -183,8 +208,92 @@ const state = {
   gameSeed: 0,
   activeGame: false,
   theme: localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light',
+  tutorialStep: 0,
+  tutorialDemoSelected: [],
+  tutorialDemoComplete: false,
+  tutorialBoard: [],
+  tutorialHintPair: [],
+  tutorialBlockedCells: [],
+  tutorialAddedNumbers: false,
+  tutorialMessage: '',
 };
 
+const TUTORIAL_BASE_BOARD = [
+  { value: 4 }, { value: 6 }, { value: 1 }, { value: 1 }, { value: 5 },
+  { value: 5 }, { value: 7 }, { value: 8 }, { value: 3 }, null,
+  { value: 9 }, null, null, { value: 2 }, null,
+];
+
+const TUTORIAL_COLUMNS = 5;
+const TUTORIAL_ADD_SOURCE_CELL = 10;
+const TUTORIAL_ADD_TARGET_CELL = 11;
+
+const TUTORIAL_STEPS = [
+  {
+    title: 'Make Your First Match',
+    text: 'Tap the 4 and 6. Numbers match when they are the same or add up to 10.',
+    tip: 'Selected numbers turn blue. Clear this pair to continue.',
+    action: 'match',
+    pair: [0, 1],
+    success: 'Nice — 4 + 6 makes 10.',
+  },
+  {
+    title: 'Same Numbers Match Too',
+    text: 'Now tap the two 1s. Equal numbers can be cleared just like pairs that add to 10.',
+    tip: 'Try clearing the two 1s.',
+    action: 'match',
+    pair: [2, 3],
+    success: 'Good — equal numbers work too.',
+  },
+  {
+    title: 'Check Row Ends',
+    text: 'The end of one row can connect to the beginning of the next row. Tap the two 5s.',
+    tip: 'This clears the first row and gives a line bonus.',
+    action: 'match',
+    pair: [4, 5],
+    lineBonus: true,
+    success: 'Row cleared — that is where the line bonus comes from.',
+  },
+  {
+    title: 'Blocked Matches Jiggle',
+    text: 'The 7 and 3 add to 10, but the 8 is in the way. Tap the 7 and 3 to see what happens.',
+    tip: 'Active numbers block paths. The blocking number will jiggle.',
+    action: 'blocked',
+    pair: [6, 8],
+    blockers: [7],
+    success: 'The 8 is blocking the path. Clear it first.',
+  },
+  {
+    title: 'Use a Hint',
+    text: 'Tap Hint, then clear the gray highlighted pair. The 8 and 2 are diagonal and add to 10.',
+    tip: 'Hint boxes are gray. When you select one, it turns blue.',
+    action: 'hint-match',
+    pair: [7, 13],
+    success: 'Nice — diagonal matches count.',
+  },
+  {
+    title: 'Use Cleared Spaces',
+    text: 'Now the 8 is cleared, so the 7 and 3 can connect through that gray space.',
+    tip: 'Cleared gray numbers stay visible, but they do not block matches.',
+    action: 'match',
+    pair: [6, 8],
+    success: 'Good — cleared spaces open new paths.',
+  },
+  {
+    title: 'Add Numbers',
+    text: 'Only one 9 is left. Tap + to copy the remaining active number, then clear the two 9s.',
+    tip: 'Adds are limited in the real game, so save them for when you need them.',
+    action: 'add-match',
+    pair: [10, 11],
+    success: 'Field cleared — clearing the whole board gives the big bonus.',
+  },
+  {
+    title: 'You Are Ready',
+    text: 'That is the full loop: find pairs, clear paths, use hints or adds when needed, and keep climbing stages.',
+    tip: 'The game autosaves. Use Continue on the home screen to resume later, and Settings to replay this tutorial or toggle dark mode.',
+    action: 'done',
+  },
+];
 
 function applyTheme() {
   const dark = state.theme === 'dark';
@@ -203,6 +312,308 @@ function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   localStorage.setItem(THEME_STORAGE_KEY, state.theme);
   applyTheme();
+}
+
+function showSettings() {
+  state.gameToken += 1;
+  if (els.gameOverScreen) els.gameOverScreen.classList.add('hidden');
+  if (els.gameScreen) els.gameScreen.classList.add('hidden');
+  if (els.homeScreen) els.homeScreen.classList.add('hidden');
+  if (els.settingsScreen) els.settingsScreen.classList.remove('hidden');
+  applyTheme();
+}
+
+function hideSettings() {
+  if (els.settingsScreen) els.settingsScreen.classList.add('hidden');
+  showHome();
+}
+
+function tutorialStep() {
+  return TUTORIAL_STEPS[state.tutorialStep] || TUTORIAL_STEPS[0];
+}
+
+function cloneTutorialBaseBoard() {
+  return TUTORIAL_BASE_BOARD.map((cell, index) => {
+    if (!cell) return { id: index, value: null, cleared: false, isNew: false };
+    return { id: index, value: cell.value, cleared: false, isNew: false };
+  });
+}
+
+function applyTutorialStepResult(board, step) {
+  if (!step) return;
+  if (step.action === 'match' || step.action === 'hint-match') {
+    (step.pair || []).forEach(index => {
+      if (board[index]) board[index].cleared = true;
+    });
+  }
+  if (step.action === 'add-match') {
+    if (board[TUTORIAL_ADD_SOURCE_CELL]?.value) {
+      board[TUTORIAL_ADD_TARGET_CELL] = {
+        id: TUTORIAL_ADD_TARGET_CELL,
+        value: board[TUTORIAL_ADD_SOURCE_CELL].value,
+        cleared: false,
+        isNew: true,
+      };
+    }
+    (step.pair || []).forEach(index => {
+      if (board[index]) board[index].cleared = true;
+    });
+  }
+}
+
+function rebuildTutorialBoardForStep(stepIndex) {
+  const board = cloneTutorialBaseBoard();
+  for (let index = 0; index < stepIndex; index += 1) {
+    applyTutorialStepResult(board, TUTORIAL_STEPS[index]);
+  }
+  state.tutorialBoard = board;
+  state.tutorialDemoSelected = [];
+  state.tutorialDemoComplete = false;
+  state.tutorialHintPair = [];
+  state.tutorialBlockedCells = [];
+  state.tutorialAddedNumbers = false;
+  state.tutorialMessage = '';
+}
+
+function resetTutorialInteraction() {
+  rebuildTutorialBoardForStep(state.tutorialStep);
+}
+
+function tutorialCellLabel(cell, index) {
+  if (!cell || !cell.value) return 'Empty space';
+  if (cell.cleared) return `Cleared ${cell.value}`;
+  return `Number ${cell.value}`;
+}
+
+function renderTutorialCell(cell, index) {
+  const step = tutorialStep();
+  const selected = state.tutorialDemoSelected.includes(index);
+  const hinted = state.tutorialHintPair.includes(index);
+  const blocked = state.tutorialBlockedCells.includes(index);
+  const classes = ['tutorial-demo-cell'];
+
+  if (!cell || !cell.value) classes.push('empty');
+  if (cell?.cleared) classes.push('cleared');
+  if (cell?.isNew && !cell.cleared) classes.push('new-copy');
+  if (hinted && !cell?.cleared) classes.push('hint');
+  if (selected && !cell?.cleared) classes.push('selected');
+  if (blocked && !cell?.cleared) classes.push('blocker');
+  if (state.tutorialDemoComplete && (step.pair || []).includes(index) && step.action !== 'blocked') classes.push('matched');
+
+  const text = cell?.value || '';
+  if (!cell || !cell.value || cell.cleared) {
+    return `<div class="${classes.join(' ')}" aria-label="${tutorialCellLabel(cell, index)}">${text}</div>`;
+  }
+  return `<button class="${classes.join(' ')}" type="button" data-tutorial-cell="${index}" aria-label="${tutorialCellLabel(cell, index)}">${text}</button>`;
+}
+
+function tutorialActionButtons(step) {
+  const showAdd = step.action === 'add-match';
+  const showHint = step.action === 'hint-match';
+  if (!showAdd && !showHint) return '';
+  const hintActive = state.tutorialHintPair.length ? 'active' : '';
+  const addActive = state.tutorialAddedNumbers ? 'active' : '';
+  return `
+    <div class="tutorial-play-actions">
+      ${showAdd ? `<button class="tutorial-action-button add ${addActive}" type="button" data-tutorial-action="add"><span>+</span><small>Add</small></button>` : ''}
+      ${showHint ? `<button class="tutorial-action-button hint ${hintActive}" type="button" data-tutorial-action="hint"><span>?</span><small>Hint</small></button>` : ''}
+    </div>`;
+}
+
+function tutorialBonusPill(step) {
+  if (step.lineBonus && state.tutorialDemoComplete) return '<div class="tutorial-score-pill">Line Clear +10</div>';
+  if (step.action === 'add-match' && state.tutorialDemoComplete) return '<div class="tutorial-score-pill">Field Clear +150</div>';
+  return '';
+}
+
+function renderTutorialDemo(step) {
+  const cells = (state.tutorialBoard.length ? state.tutorialBoard : cloneTutorialBaseBoard())
+    .map((cell, index) => renderTutorialCell(cell, index))
+    .join('');
+
+  return `
+    <div class="tutorial-play-area">
+      <div class="tutorial-play-board" style="--tutorial-cols: ${TUTORIAL_COLUMNS};">${cells}</div>
+      ${tutorialActionButtons(step)}
+      ${tutorialBonusPill(step)}
+    </div>`;
+}
+
+function tutorialSuccessText(step) {
+  if (state.tutorialMessage) return state.tutorialMessage;
+  if (state.tutorialDemoComplete) return step.success || 'Nice — tap Next to keep going.';
+  if (step.action === 'hint-match' && state.tutorialHintPair.length) return 'Now tap both gray hint boxes to clear the pair.';
+  if (step.action === 'add-match' && state.tutorialAddedNumbers) return 'Now tap the two 9s to clear the mini board.';
+  return step.tip;
+}
+
+function renderTutorialStep() {
+  if (!els.tutorialModal) return;
+  const step = tutorialStep();
+  const total = TUTORIAL_STEPS.length;
+  const current = state.tutorialStep + 1;
+  const canContinue = step.action === 'done' || state.tutorialDemoComplete;
+
+  if (els.tutorialStepLabel) els.tutorialStepLabel.textContent = `Step ${current} of ${total}`;
+  if (els.tutorialStepTitle) els.tutorialStepTitle.textContent = step.title;
+  if (els.tutorialStepText) els.tutorialStepText.textContent = step.text;
+  if (els.tutorialDemo) els.tutorialDemo.innerHTML = renderTutorialDemo(step);
+  if (els.tutorialStepTip) els.tutorialStepTip.textContent = tutorialSuccessText(step);
+  if (els.tutorialProgress) {
+    els.tutorialProgress.innerHTML = TUTORIAL_STEPS
+      .map((_, index) => `<span class="tutorial-dot ${index === state.tutorialStep ? 'active' : ''} ${index < state.tutorialStep ? 'done' : ''}"></span>`)
+      .join('');
+  }
+  if (els.tutorialBackStepBtn) els.tutorialBackStepBtn.disabled = state.tutorialStep === 0;
+  if (els.tutorialNextStepBtn) {
+    els.tutorialNextStepBtn.disabled = !canContinue;
+    els.tutorialNextStepBtn.textContent = state.tutorialStep === total - 1 ? 'Done' : (canContinue ? 'Next' : 'Clear Pair');
+  }
+}
+
+function openTutorial(options = {}) {
+  state.tutorialStep = 0;
+  rebuildTutorialBoardForStep(0);
+  renderTutorialStep();
+  if (els.tutorialModal) els.tutorialModal.classList.remove('hidden');
+}
+
+function closeTutorial() {
+  try { localStorage.setItem(TUTORIAL_SEEN_STORAGE_KEY, '1'); } catch (error) {}
+  if (els.tutorialModal) els.tutorialModal.classList.add('hidden');
+}
+
+function nextTutorialStep() {
+  const step = tutorialStep();
+  if (step.action !== 'done' && !state.tutorialDemoComplete) return;
+  if (state.tutorialStep >= TUTORIAL_STEPS.length - 1) {
+    closeTutorial();
+    return;
+  }
+  state.tutorialStep += 1;
+  rebuildTutorialBoardForStep(state.tutorialStep);
+  renderTutorialStep();
+}
+
+function previousTutorialStep() {
+  if (state.tutorialStep <= 0) return;
+  state.tutorialStep -= 1;
+  rebuildTutorialBoardForStep(state.tutorialStep);
+  renderTutorialStep();
+}
+
+function samePair(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  const left = [...a].sort((x, y) => x - y);
+  const right = [...b].sort((x, y) => x - y);
+  return left.every((value, index) => value === right[index]);
+}
+
+function completeTutorialMatch(step) {
+  (step.pair || []).forEach(index => {
+    if (state.tutorialBoard[index]) state.tutorialBoard[index].cleared = true;
+  });
+  state.tutorialHintPair = [];
+  state.tutorialBlockedCells = [];
+  state.tutorialDemoComplete = true;
+  state.tutorialMessage = step.success || 'Nice — tap Next to keep going.';
+}
+
+function handleTutorialAction(action) {
+  const step = tutorialStep();
+  if (state.tutorialDemoComplete) return;
+
+  if (action === 'hint' && step.action === 'hint-match') {
+    state.tutorialHintPair = [...step.pair];
+    state.tutorialMessage = 'Now tap both gray hint boxes to clear the pair.';
+    renderTutorialStep();
+    return;
+  }
+
+  if (action === 'add' && step.action === 'add-match') {
+    const source = state.tutorialBoard[TUTORIAL_ADD_SOURCE_CELL];
+    if (source?.value) {
+      state.tutorialBoard[TUTORIAL_ADD_TARGET_CELL] = {
+        id: TUTORIAL_ADD_TARGET_CELL,
+        value: source.value,
+        cleared: false,
+        isNew: true,
+      };
+      state.tutorialAddedNumbers = true;
+      state.tutorialMessage = 'Now tap the two 9s to clear the mini board.';
+      renderTutorialStep();
+    }
+  }
+}
+
+function handleTutorialDemoTap(event) {
+  const actionTarget = event.target.closest('[data-tutorial-action]');
+  if (actionTarget && els.tutorialDemo?.contains(actionTarget)) {
+    event.preventDefault();
+    handleTutorialAction(actionTarget.dataset.tutorialAction);
+    return;
+  }
+
+  const target = event.target.closest('[data-tutorial-cell]');
+  if (!target || !els.tutorialDemo || !els.tutorialDemo.contains(target)) return;
+  const step = tutorialStep();
+  if (state.tutorialDemoComplete || step.action === 'done') return;
+  event.preventDefault();
+
+  const cellIndex = Number(target.dataset.tutorialCell);
+  if (!Number.isFinite(cellIndex)) return;
+
+  if (step.action === 'hint-match' && !state.tutorialHintPair.length) {
+    state.tutorialMessage = 'Tap Hint first so the pair appears in gray.';
+    renderTutorialStep();
+    return;
+  }
+  if (step.action === 'add-match' && !state.tutorialAddedNumbers) {
+    state.tutorialMessage = 'Tap + first to add another 9.';
+    renderTutorialStep();
+    return;
+  }
+
+  if (state.tutorialDemoSelected.includes(cellIndex)) {
+    state.tutorialDemoSelected = state.tutorialDemoSelected.filter(index => index !== cellIndex);
+    renderTutorialStep();
+    return;
+  }
+
+  if (state.tutorialDemoSelected.length === 1) {
+    const first = state.tutorialDemoSelected[0];
+    const pair = [first, cellIndex];
+
+    if (samePair(pair, step.pair)) {
+      if (step.action === 'blocked') {
+        state.tutorialDemoSelected = [];
+        state.tutorialBlockedCells = [...(step.blockers || [])];
+        state.tutorialDemoComplete = true;
+        state.tutorialMessage = step.success || 'That path is blocked.';
+        renderTutorialStep();
+        return;
+      }
+      state.tutorialDemoSelected = pair;
+      completeTutorialMatch(step);
+      renderTutorialStep();
+      return;
+    }
+
+    state.tutorialDemoSelected = [cellIndex];
+    state.tutorialMessage = 'That is not the pair for this step, so the selection moved to the new number.';
+    renderTutorialStep();
+    return;
+  }
+
+  state.tutorialDemoSelected = [cellIndex];
+  state.tutorialMessage = '';
+  renderTutorialStep();
+}
+
+function maybeShowFirstRunTutorial() {
+  let seen = false;
+  try { seen = localStorage.getItem(TUTORIAL_SEEN_STORAGE_KEY) === '1'; } catch (error) { seen = true; }
+  if (!seen) setTimeout(() => openTutorial(), 250);
 }
 
 function wait(ms) {
@@ -333,6 +744,7 @@ function restoreSavedGame() {
   state.justAddedStart = -1;
   els.effectLayer.innerHTML = '';
   if (els.gameOverScreen) els.gameOverScreen.classList.add('hidden');
+  if (els.settingsScreen) els.settingsScreen.classList.add('hidden');
   els.homeScreen.classList.add('hidden');
   els.gameScreen.classList.remove('hidden');
   updateMessage(snapshot.message || `${currentDifficulty().label} Stage ${state.stage}: ${PAIR_RULE_TEXT}`);
@@ -1822,6 +2234,7 @@ function showHome() {
   state.lost = false;
   els.effectLayer.innerHTML = '';
   if (els.gameOverScreen) els.gameOverScreen.classList.add('hidden');
+  if (els.settingsScreen) els.settingsScreen.classList.add('hidden');
   els.gameScreen.classList.add('hidden');
   els.homeScreen.classList.remove('hidden');
   if (els.homeBestScore) els.homeBestScore.textContent = state.allTime.toLocaleString();
@@ -1891,6 +2304,7 @@ function startGame(difficultyKey, options = {}) {
   state.gameOver = false;
   els.effectLayer.innerHTML = '';
   if (els.gameOverScreen) els.gameOverScreen.classList.add('hidden');
+  if (els.settingsScreen) els.settingsScreen.classList.add('hidden');
   els.homeScreen.classList.add('hidden');
   els.gameScreen.classList.remove('hidden');
   startStage(1);
@@ -2065,7 +2479,17 @@ els.addBtn.addEventListener('click', addMoreNumbers);
 els.hintBtn.addEventListener('click', useHint);
 els.backBtn.addEventListener('click', endGameToHome);
 if (els.continueGameBtn) els.continueGameBtn.addEventListener('click', restoreSavedGame);
+if (els.homeSettingsBtn) els.homeSettingsBtn.addEventListener('click', showSettings);
+if (els.settingsBackBtn) els.settingsBackBtn.addEventListener('click', hideSettings);
 if (els.themeToggleBtn) els.themeToggleBtn.addEventListener('click', toggleTheme);
+if (els.tutorialOpenBtn) els.tutorialOpenBtn.addEventListener('click', () => openTutorial());
+if (els.tutorialBackStepBtn) els.tutorialBackStepBtn.addEventListener('click', previousTutorialStep);
+if (els.tutorialNextStepBtn) els.tutorialNextStepBtn.addEventListener('click', nextTutorialStep);
+if (els.tutorialSkipBtn) els.tutorialSkipBtn.addEventListener('click', closeTutorial);
+if (els.tutorialDemo) els.tutorialDemo.addEventListener('pointerdown', handleTutorialDemoTap);
+if (els.tutorialModal) els.tutorialModal.addEventListener('click', event => {
+  if (event.target === els.tutorialModal) closeTutorial();
+});
 if (els.copyBoardBtn) els.copyBoardBtn.addEventListener('click', copyBoardState);
 if (els.gameOverNewGame) els.gameOverNewGame.addEventListener('click', () => startGame(state.difficultyKey, { discardCurrent: true }));
 if (els.gameOverMain) els.gameOverMain.addEventListener('click', () => {
@@ -2090,3 +2514,4 @@ document.addEventListener('visibilitychange', () => {
 applyTheme();
 render();
 showHome();
+maybeShowFirstRunTutorial();

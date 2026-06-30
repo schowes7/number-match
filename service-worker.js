@@ -1,4 +1,4 @@
-const CACHE_NAME = 'number-match-pwa-v15-darkfit';
+const CACHE_NAME = 'number-match-pwa-v18-tutorial-play';
 const APP_ASSETS = [
   './',
   './index.html',
