@@ -141,6 +141,9 @@ const els = {
   addCount: document.getElementById('addCount'),
   rulesText: document.getElementById('rulesText'),
   copyBoardBtn: document.getElementById('copyBoardBtn'),
+  confirmNewGameModal: document.getElementById('confirmNewGameModal'),
+  confirmStartNewGame: document.getElementById('confirmStartNewGame'),
+  cancelStartNewGame: document.getElementById('cancelStartNewGame'),
 };
 
 const state = {
@@ -172,11 +175,20 @@ const state = {
   stageIntro: false,
   gameOver: false,
   gameToken: 0,
+  gameSeed: 0,
   activeGame: false,
 };
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function createGameSeed() {
+  return (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+}
+
+function seedSalt() {
+  return Number.isFinite(state.gameSeed) ? state.gameSeed : 0;
 }
 
 
@@ -214,6 +226,7 @@ function saveCurrentGame() {
     version: 1,
     savedAt: Date.now(),
     difficultyKey: state.difficultyKey,
+    gameSeed: seedSalt(),
     stage: state.stage,
     score: state.score,
     totalCleared: state.totalCleared,
@@ -261,6 +274,7 @@ function restoreSavedGame() {
   state.gameToken += 1;
   state.activeGame = true;
   state.difficultyKey = snapshot.difficultyKey;
+  state.gameSeed = Number.isFinite(snapshot.gameSeed) ? snapshot.gameSeed : 0;
   state.stage = Math.max(1, Number(snapshot.stage) || 1);
   state.score = Math.max(0, Number(snapshot.score) || 0);
   state.totalCleared = Math.max(0, Number(snapshot.totalCleared) || 0);
@@ -427,8 +441,8 @@ function countImmediateStartPairs(values) {
   return count;
 }
 
-function generateTestSequence(profile, stageNumber) {
-  const rand = mulberry32(4111 + profile.seedOffset + stageNumber * 379);
+function generateTestSequence(profile, stageNumber, salt = 0) {
+  const rand = mulberry32(4111 + profile.seedOffset + stageNumber * 379 + salt);
   const values = [];
   while (values.length < profile.startNumbers) {
     const value = seededInt(rand, 1, 9);
@@ -439,8 +453,8 @@ function generateTestSequence(profile, stageNumber) {
   return values.slice(0, profile.startNumbers);
 }
 
-function generateControlledRandomSequence(profile, stageNumber, attempt) {
-  const rand = mulberry32(7207 + profile.seedOffset + stageNumber * 9973 + attempt * 131);
+function generateControlledRandomSequence(profile, stageNumber, attempt, salt = 0) {
+  const rand = mulberry32(7207 + profile.seedOffset + stageNumber * 9973 + attempt * 131 + salt);
   const values = [];
   const [targetMin] = profile.targetStartPairs;
 
@@ -599,8 +613,8 @@ function pureSolveGreedy(values, maxAdds = MAX_ADDS_PER_STAGE) {
   return false;
 }
 
-function fallbackNestedSequence(profile, stageNumber) {
-  const rand = mulberry32(9901 + profile.seedOffset + stageNumber * 557);
+function fallbackNestedSequence(profile, stageNumber, salt = 0) {
+  const rand = mulberry32(9901 + profile.seedOffset + stageNumber * 557 + salt);
   const sequence = [];
   while (sequence.length < profile.startNumbers) {
     const value = seededInt(rand, 1, 9);
@@ -610,29 +624,29 @@ function fallbackNestedSequence(profile, stageNumber) {
   return sequence.slice(0, profile.startNumbers);
 }
 
-function generateStage(stageNumber, difficultyKey = state.difficultyKey) {
+function generateStage(stageNumber, difficultyKey = state.difficultyKey, salt = seedSalt()) {
   const profile = DIFFICULTIES[difficultyKey] || DIFFICULTIES.basic;
 
   if (profile.generator === 'test') {
-    const values = generateTestSequence(profile, stageNumber);
+    const values = generateTestSequence(profile, stageNumber, salt);
     return values.map((value, index) => ({
       value,
       cleared: false,
-      id: `${difficultyKey}-${stageNumber}-${index}-test`,
+      id: `${difficultyKey}-${stageNumber}-${seedSalt()}-${index}-test`,
     }));
   }
   const [targetMin, targetMax] = profile.targetStartPairs;
   let relaxedCandidate = null;
 
   for (let attempt = 0; attempt < profile.maxAttempts; attempt += 1) {
-    const values = generateControlledRandomSequence(profile, stageNumber, attempt);
+    const values = generateControlledRandomSequence(profile, stageNumber, attempt, salt);
     const openingPairs = countImmediateStartPairs(values);
 
     if (openingPairs >= targetMin && openingPairs <= targetMax && pureSolveGreedy(values, profile.adds)) {
       return values.map((value, index) => ({
         value,
         cleared: false,
-        id: `${difficultyKey}-${stageNumber}-${index}-${attempt}`,
+        id: `${difficultyKey}-${stageNumber}-${seedSalt()}-${index}-${attempt}`,
       }));
     }
 
@@ -641,11 +655,11 @@ function generateStage(stageNumber, difficultyKey = state.difficultyKey) {
     }
   }
 
-  const fallback = relaxedCandidate || fallbackNestedSequence(profile, stageNumber);
+  const fallback = relaxedCandidate || fallbackNestedSequence(profile, stageNumber, salt);
   return fallback.map((value, index) => ({
     value,
     cleared: false,
-    id: `${difficultyKey}-${stageNumber}-${index}-fallback`,
+    id: `${difficultyKey}-${stageNumber}-${seedSalt()}-${index}-fallback`,
   }));
 }
 
@@ -1774,16 +1788,55 @@ function showHome() {
   renderDifficultyCards();
 }
 
-function startGame(difficultyKey) {
+let pendingNewGameDifficulty = null;
+
+function currentGameWouldBeLost() {
+  if (state.lost || state.gameOver) return false;
+  return !!savedGameSnapshot() || (state.activeGame && state.board.length > 0);
+}
+
+function openNewGameConfirm(difficultyKey) {
+  pendingNewGameDifficulty = difficultyKey;
+  if (!els.confirmNewGameModal) {
+    startGame(difficultyKey, { discardCurrent: true });
+    return;
+  }
+  els.confirmNewGameModal.classList.remove('hidden');
+}
+
+function closeNewGameConfirm() {
+  pendingNewGameDifficulty = null;
+  if (els.confirmNewGameModal) els.confirmNewGameModal.classList.add('hidden');
+}
+
+function requestStartGame(difficultyKey) {
   const requestedDifficulty = DIFFICULTIES[difficultyKey] ? difficultyKey : 'basic';
   if (!isDifficultyUnlocked(requestedDifficulty)) {
     renderDifficultyCards();
     return;
   }
 
+  if (currentGameWouldBeLost()) {
+    openNewGameConfirm(requestedDifficulty);
+    return;
+  }
+
+  startGame(requestedDifficulty, { discardCurrent: false });
+}
+
+function startGame(difficultyKey, options = {}) {
+  const { discardCurrent = true } = options;
+  const requestedDifficulty = DIFFICULTIES[difficultyKey] ? difficultyKey : 'basic';
+  if (!isDifficultyUnlocked(requestedDifficulty)) {
+    renderDifficultyCards();
+    return;
+  }
+
+  if (discardCurrent) clearSavedGame();
   state.gameToken += 1;
   state.activeGame = true;
   state.difficultyKey = requestedDifficulty;
+  state.gameSeed = createGameSeed();
   state.stage = 1;
   state.score = 0;
   state.totalCleared = 0;
@@ -1800,6 +1853,12 @@ function startGame(difficultyKey) {
   els.homeScreen.classList.add('hidden');
   els.gameScreen.classList.remove('hidden');
   startStage(1);
+}
+
+function confirmPendingNewGame() {
+  const difficultyKey = pendingNewGameDifficulty;
+  closeNewGameConfirm();
+  if (difficultyKey) startGame(difficultyKey, { discardCurrent: true });
 }
 
 function endGameToHome() {
@@ -1966,14 +2025,19 @@ els.hintBtn.addEventListener('click', useHint);
 els.backBtn.addEventListener('click', endGameToHome);
 if (els.continueGameBtn) els.continueGameBtn.addEventListener('click', restoreSavedGame);
 if (els.copyBoardBtn) els.copyBoardBtn.addEventListener('click', copyBoardState);
-if (els.gameOverNewGame) els.gameOverNewGame.addEventListener('click', () => startGame(state.difficultyKey));
+if (els.gameOverNewGame) els.gameOverNewGame.addEventListener('click', () => startGame(state.difficultyKey, { discardCurrent: true }));
 if (els.gameOverMain) els.gameOverMain.addEventListener('click', () => {
   state.activeGame = false;
   clearSavedGame();
   showHome();
 });
+if (els.confirmStartNewGame) els.confirmStartNewGame.addEventListener('click', confirmPendingNewGame);
+if (els.cancelStartNewGame) els.cancelStartNewGame.addEventListener('click', closeNewGameConfirm);
+if (els.confirmNewGameModal) els.confirmNewGameModal.addEventListener('click', event => {
+  if (event.target === els.confirmNewGameModal) closeNewGameConfirm();
+});
 els.difficultyButtons.forEach(button => {
-  button.addEventListener('click', () => startGame(button.dataset.difficulty));
+  button.addEventListener('click', () => requestStartGame(button.dataset.difficulty));
 });
 
 window.addEventListener('pagehide', saveCurrentGame);

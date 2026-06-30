@@ -1160,3 +1160,76 @@ button {
   user-select: none;
   touch-action: none;
 }
+
+/* Confirm new game modal */
+.confirm-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(17, 24, 39, 0.34);
+  backdrop-filter: blur(3px);
+}
+
+.confirm-card {
+  width: min(350px, 100%);
+  border: 3px solid #C3C9D5;
+  border-radius: 24px;
+  background: #ffffff;
+  padding: 22px 18px 18px;
+  text-align: center;
+  box-shadow: 0 22px 46px rgba(38, 63, 91, 0.25);
+}
+
+.confirm-card h2 {
+  margin: 0 0 8px;
+  font-size: 25px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #000000;
+}
+
+.confirm-card p {
+  margin: 0 auto 18px;
+  max-width: 280px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #6B7280;
+}
+
+.confirm-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.confirm-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 16px;
+  border: 2px solid #C3C9D5;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.confirm-button.primary {
+  background: #1689e8;
+  border-color: #1689e8;
+  color: #ffffff;
+}
+
+.confirm-button.secondary {
+  background: #ffffff;
+  color: #000000;
+}
+
+.confirm-button:active {
+  transform: scale(.985);
+}
+
+/* Hint boxes should be gray while numbers stay black. */
+.cell.hint {
+  background: #e3e8ef;
+  color: #000000 !important;
+}
