@@ -4,25 +4,30 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Number Match</title>
-  <meta name="theme-color" content="#f7f9fc" />
+  <meta name="theme-color" content="#f7f8fb" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Number Match" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="build-version" content="hint12" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="build-version" content="darkfit15" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css?v=hint12" />
+  <link rel="stylesheet" href="styles.css?v=darkfit15" />
 </head>
 <body>
   <main class="phone-app">
     <section id="homeScreen" class="home-screen">
       <div class="home-header">
         <div class="home-kicker">Number Match</div>
-        <h1>Choose Difficulty</h1>
-        <p>Clear equal pairs or pairs that add to 10. Every stage is random-looking but checked for a full solution path.</p>
+        <h1>Pair. Clear. Climb.</h1>
+        <p>A cleaner, faster version focused on the grid. Match equals or sums of 10, clear stages, and chase your best score.</p>
       </div>
+
+      <button id="themeToggleBtn" class="theme-toggle-button" type="button" aria-pressed="false">
+        <span>Dark Mode</span>
+        <strong id="themeToggleStatus">Off</strong>
+      </button>
 
       <div class="difficulty-menu" aria-label="Select difficulty">
         <button id="continueGameBtn" class="difficulty-card continue-card hidden" type="button">
@@ -32,27 +37,27 @@
         </button>
         <button class="difficulty-card" data-difficulty="test">
           <span class="difficulty-name">Test</span>
-          <span class="difficulty-description">Very easy boards for testing animations and mechanics.</span>
+          <span class="difficulty-description">Tiny boards for quick warmups.</span>
         </button>
         <button class="difficulty-card" data-difficulty="basic">
           <span class="difficulty-name">Basic</span>
-          <span class="difficulty-description">42 numbers with a few opening moves.</span>
+          <span class="difficulty-description">A forgiving start with 5 adds.</span>
         </button>
         <button class="difficulty-card" data-difficulty="medium">
           <span class="difficulty-name">Medium</span>
-          <span class="difficulty-description">44 numbers with fewer obvious starts. 2× scoring.</span>
+          <span class="difficulty-description">Cleaner boards, fewer easy openings.</span>
         </button>
         <button class="difficulty-card" data-difficulty="hard">
           <span class="difficulty-name">Hard</span>
-          <span class="difficulty-description">44 numbers with harder openings. 3× scoring.</span>
+          <span class="difficulty-description">Less obvious, more scanning.</span>
         </button>
         <button class="difficulty-card" data-difficulty="expert">
           <span class="difficulty-name">Expert</span>
-          <span class="difficulty-description">44 numbers, only 4 adds. 4× scoring.</span>
+          <span class="difficulty-description">Four adds. Little room for waste.</span>
         </button>
         <button class="difficulty-card" data-difficulty="master">
           <span class="difficulty-name">Master</span>
-          <span class="difficulty-description">53 numbers, only 4 adds. 5× scoring.</span>
+          <span class="difficulty-description">Bigger grid, four adds, highest multiplier.</span>
         </button>
       </div>
 
@@ -106,7 +111,7 @@
 
       <section class="rules-card">
         <div class="rules-header">
-          <b>Scoring</b>
+          <b>Points</b>
           <span id="rulesMultiplier" class="rules-multiplier">1×</span>
         </div>
         <div id="rulesText" class="rules-mini-grid" aria-label="Scoring values">
@@ -116,11 +121,11 @@
           <span><strong>+10</strong><em>Line</em></span>
           <span><strong>+150</strong><em>Field</em></span>
         </div>
-        <div id="rulesSubtext" class="rules-subtext">Stage × difficulty applied</div>
+        <div id="rulesSubtext" class="rules-subtext">Score scales with stage and difficulty.</div>
       </section>
 
       <section class="copy-board-section">
-        <button id="copyBoardBtn" class="copy-board-button" type="button">Copy Board State</button>
+        <button id="copyBoardBtn" class="copy-board-button" type="button">Copy board</button>
       </section>
     </section>
 
@@ -156,7 +161,7 @@
     <div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
   </main>
 
-  <script src="script.js?v=hint12"></script>
+  <script src="script.js?v=darkfit15"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

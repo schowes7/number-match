@@ -1,6 +1,6 @@
 const COLS = 9;
 const MAX_ADDS_PER_STAGE = 5;
-const PAIR_RULE_TEXT = 'Find equal pairs or pairs that add to 10.';
+const PAIR_RULE_TEXT = 'Match equals or sums of 10.';
 
 const DIFFICULTIES = {
   test: {
@@ -77,6 +77,7 @@ const UNLOCK_REQUIREMENTS = {
 
 const DIFFICULTY_BEST_STORAGE_PREFIX = 'numberMatchBestDifficulty:';
 const CURRENT_GAME_STORAGE_KEY = 'numberMatchCurrentGame:v1';
+const THEME_STORAGE_KEY = 'numberMatchTheme:v1';
 
 const DIFFICULTY_ORDER = ['test', 'basic', 'medium', 'hard', 'expert', 'master'];
 
@@ -131,6 +132,8 @@ const els = {
   continueGameBtn: document.getElementById('continueGameBtn'),
   continueDescription: document.getElementById('continueDescription'),
   continueStatus: document.getElementById('continueStatus'),
+  themeToggleBtn: document.getElementById('themeToggleBtn'),
+  themeToggleStatus: document.getElementById('themeToggleStatus'),
   stage: document.getElementById('stage'),
   difficulty: document.getElementById('difficulty'),
   digitsRow: document.getElementById('digitsRow'),
@@ -179,7 +182,28 @@ const state = {
   gameToken: 0,
   gameSeed: 0,
   activeGame: false,
+  theme: localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light',
 };
+
+
+function applyTheme() {
+  const dark = state.theme === 'dark';
+  document.documentElement.classList.toggle('theme-dark', dark);
+  document.body.classList.toggle('theme-dark', dark);
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.setAttribute('content', dark ? '#0f172a' : '#f7f8fb');
+  if (els.themeToggleBtn) {
+    els.themeToggleBtn.setAttribute('aria-pressed', String(dark));
+    els.themeToggleBtn.classList.toggle('active', dark);
+  }
+  if (els.themeToggleStatus) els.themeToggleStatus.textContent = dark ? 'On' : 'Off';
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_STORAGE_KEY, state.theme);
+  applyTheme();
+}
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -409,7 +433,7 @@ function updateRulesText() {
   if (els.rulesMultiplier) els.rulesMultiplier.textContent = `${factor.toLocaleString()}×`;
   if (els.rulesSubtext) {
     const difficultyMultiplier = diff.scoreMultiplier || 1;
-    els.rulesSubtext.textContent = `${diff.label} · Stage ${state.stage} · ${difficultyMultiplier}× difficulty`;
+    els.rulesSubtext.textContent = `${diff.label} • Stage ${state.stage} • ${difficultyMultiplier}× difficulty`;
   }
 }
 
@@ -1747,11 +1771,11 @@ function renderDifficultyCards() {
       const requirement = UNLOCK_REQUIREMENTS[key];
       const current = difficultyBest(requirement.previous);
       const previousLabel = DIFFICULTIES[requirement.previous].label;
-      status.textContent = `🔒 ${previousLabel} best ${current.toLocaleString()} / ${requirement.score.toLocaleString()}`;
+      status.textContent = `🔒 ${previousLabel} ${current.toLocaleString()} / ${requirement.score.toLocaleString()}`;
     } else if (key === 'test') {
-      status.textContent = 'Always unlocked';
+      status.textContent = 'Open · practice board';
     } else {
-      status.textContent = `Best: ${difficultyBest(key).toLocaleString()}`;
+      status.textContent = `${diff.scoreMultiplier}× · Best ${difficultyBest(key).toLocaleString()}`;
     }
 
     const description = button.querySelector('.difficulty-description');
@@ -2041,6 +2065,7 @@ els.addBtn.addEventListener('click', addMoreNumbers);
 els.hintBtn.addEventListener('click', useHint);
 els.backBtn.addEventListener('click', endGameToHome);
 if (els.continueGameBtn) els.continueGameBtn.addEventListener('click', restoreSavedGame);
+if (els.themeToggleBtn) els.themeToggleBtn.addEventListener('click', toggleTheme);
 if (els.copyBoardBtn) els.copyBoardBtn.addEventListener('click', copyBoardState);
 if (els.gameOverNewGame) els.gameOverNewGame.addEventListener('click', () => startGame(state.difficultyKey, { discardCurrent: true }));
 if (els.gameOverMain) els.gameOverMain.addEventListener('click', () => {
@@ -2062,5 +2087,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveCurrentGame();
 });
 
+applyTheme();
 render();
 showHome();

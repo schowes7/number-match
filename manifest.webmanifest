@@ -1,13 +1,13 @@
 {
-  "name": "Number Match Recreation",
+  "name": "Number Match",
   "short_name": "Number Match",
-  "description": "A Number Match style puzzle game with difficulties, scoring, animations, and offline play.",
+  "description": "A polished Number Match puzzle game with stages, hints, saves, and offline play.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f7f9fc",
-  "theme_color": "#f7f9fc",
+  "background_color": "#f7f8fb",
+  "theme_color": "#f7f8fb",
   "icons": [
     {
       "src": "icon-192.png",
