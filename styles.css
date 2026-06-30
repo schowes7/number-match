@@ -182,6 +182,20 @@ button {
   box-shadow: 0 12px 24px rgba(38, 63, 91, 0.09);
 }
 
+.continue-card {
+  border-color: #2d8ff0;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+  box-shadow: 0 12px 28px rgba(45, 143, 240, 0.16);
+}
+
+.continue-card .difficulty-name {
+  color: #1689e8;
+}
+
+.continue-card .difficulty-status {
+  color: #6B7280;
+}
+
 .difficulty-name {
   color: #000000;
   font-size: 19px;

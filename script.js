@@ -76,6 +76,7 @@ const UNLOCK_REQUIREMENTS = {
 };
 
 const DIFFICULTY_BEST_STORAGE_PREFIX = 'numberMatchBestDifficulty:';
+const CURRENT_GAME_STORAGE_KEY = 'numberMatchCurrentGame:v1';
 
 const DIFFICULTY_ORDER = ['test', 'basic', 'medium', 'hard', 'expert', 'master'];
 
@@ -127,6 +128,9 @@ const els = {
   score: document.getElementById('score'),
   bestScore: document.getElementById('bestScore'),
   homeBestScore: document.getElementById('homeBestScore'),
+  continueGameBtn: document.getElementById('continueGameBtn'),
+  continueDescription: document.getElementById('continueDescription'),
+  continueStatus: document.getElementById('continueStatus'),
   stage: document.getElementById('stage'),
   difficulty: document.getElementById('difficulty'),
   digitsRow: document.getElementById('digitsRow'),
@@ -168,10 +172,134 @@ const state = {
   stageIntro: false,
   gameOver: false,
   gameToken: 0,
+  activeGame: false,
 };
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+function savedGameSnapshot() {
+  try {
+    const raw = localStorage.getItem(CURRENT_GAME_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || data.version !== 1 || !Array.isArray(data.board) || !DIFFICULTIES[data.difficultyKey]) return null;
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  localStorage.removeItem(CURRENT_GAME_STORAGE_KEY);
+  updateContinueButton();
+}
+
+function serializeBoard() {
+  return state.board
+    .filter(Boolean)
+    .map((cell, index) => ({
+      value: cell.value,
+      cleared: !!cell.cleared,
+      addedBlue: !!cell.addedBlue,
+      id: cell.id || `saved-${index}`,
+    }));
+}
+
+function saveCurrentGame() {
+  if (!state.activeGame || state.lost || state.gameOver || !state.board.length) return;
+  const save = {
+    version: 1,
+    savedAt: Date.now(),
+    difficultyKey: state.difficultyKey,
+    stage: state.stage,
+    score: state.score,
+    totalCleared: state.totalCleared,
+    addsRemaining: state.addsRemaining,
+    board: serializeBoard(),
+    stageDigits: Array.from(state.stageDigits || []),
+    digitsAnnounced: Array.from(state.digitsAnnounced || []),
+    selected: typeof state.selected === 'number' ? state.selected : null,
+    hintPair: Array.isArray(state.hintPair) ? state.hintPair : null,
+    message: els.message?.textContent || `${currentDifficulty().label} Stage ${state.stage}: ${PAIR_RULE_TEXT}`,
+  };
+  try {
+    localStorage.setItem(CURRENT_GAME_STORAGE_KEY, JSON.stringify(save));
+    updateContinueButton(save);
+  } catch (error) {
+    // Ignore full-storage/private-mode errors; the game should still play.
+  }
+}
+
+function updateContinueButton(snapshot = savedGameSnapshot()) {
+  if (!els.continueGameBtn) return;
+  if (!snapshot) {
+    els.continueGameBtn.classList.add('hidden');
+    return;
+  }
+
+  const diff = DIFFICULTIES[snapshot.difficultyKey] || DIFFICULTIES.basic;
+  els.continueGameBtn.classList.remove('hidden');
+  if (els.continueDescription) {
+    els.continueDescription.textContent = `${diff.label} • Stage ${snapshot.stage || 1} • Score ${(snapshot.score || 0).toLocaleString()}`;
+  }
+  if (els.continueStatus) {
+    const saved = snapshot.savedAt ? new Date(snapshot.savedAt) : null;
+    els.continueStatus.textContent = saved ? `Saved ${saved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Saved game found';
+  }
+}
+
+function restoreSavedGame() {
+  const snapshot = savedGameSnapshot();
+  if (!snapshot) {
+    updateContinueButton(null);
+    return false;
+  }
+
+  state.gameToken += 1;
+  state.activeGame = true;
+  state.difficultyKey = snapshot.difficultyKey;
+  state.stage = Math.max(1, Number(snapshot.stage) || 1);
+  state.score = Math.max(0, Number(snapshot.score) || 0);
+  state.totalCleared = Math.max(0, Number(snapshot.totalCleared) || 0);
+  state.addsRemaining = Math.max(0, Number(snapshot.addsRemaining) || 0);
+  state.board = snapshot.board.map((cell, index) => ({
+    value: Number(cell.value),
+    cleared: !!cell.cleared,
+    addedBlue: !!cell.addedBlue,
+    id: cell.id || `restored-${index}`,
+  })).filter(cell => Number.isFinite(cell.value) && cell.value >= 1 && cell.value <= 9);
+  state.stageDigits = new Set(snapshot.stageDigits && snapshot.stageDigits.length ? snapshot.stageDigits : state.board.map(cell => cell.value));
+  state.digitsAnnounced = new Set(snapshot.digitsAnnounced || []);
+  state.justClearedDigits = new Set();
+  state.selected = typeof snapshot.selected === 'number' && snapshot.selected < state.board.length && !state.board[snapshot.selected]?.cleared ? snapshot.selected : null;
+  state.hintPair = Array.isArray(snapshot.hintPair) ? snapshot.hintPair.filter(index => state.board[index] && !state.board[index].cleared) : null;
+  if (state.hintPair && state.hintPair.length !== 2) state.hintPair = null;
+  state.badPair = [];
+  state.blockedCells = [];
+  state.matchingPair = [];
+  state.clearingPair = [];
+  state.lineClearingCellIds = new Set();
+  state.fieldClearing = false;
+  state.rowAnimating = false;
+  state.addAnimating = false;
+  state.addBluePulse = new Set();
+  state.transitioning = false;
+  state.stageIntro = false;
+  state.gameOver = false;
+  state.lost = false;
+  state.justAddedStart = -1;
+  els.effectLayer.innerHTML = '';
+  if (els.gameOverScreen) els.gameOverScreen.classList.add('hidden');
+  els.homeScreen.classList.add('hidden');
+  els.gameScreen.classList.remove('hidden');
+  updateMessage(snapshot.message || `${currentDifficulty().label} Stage ${state.stage}: ${PAIR_RULE_TEXT}`);
+  render();
+  saveCurrentGame();
+  setTimeout(() => checkNoMovesAutoFail(), 0);
+  return true;
 }
 
 function interactionLocked() {
@@ -523,6 +651,7 @@ function generateStage(stageNumber, difficultyKey = state.difficultyKey) {
 
 function startStage(stageNumber, options = {}) {
   const { intro = false } = options;
+  state.activeGame = true;
   state.transitioning = false;
   state.stageIntro = intro;
   state.rowAnimating = false;
@@ -546,6 +675,7 @@ function startStage(stageNumber, options = {}) {
   state.justClearedDigits = new Set();
   updateMessage(`${currentDifficulty().label} Stage ${stageNumber}: ${PAIR_RULE_TEXT}`);
   render();
+  saveCurrentGame();
 }
 
 function updateMessage(text) {
@@ -821,6 +951,7 @@ function addScore(points) {
     state.allTime = state.score;
     localStorage.setItem('numberMatchBest', String(state.allTime));
   }
+  saveCurrentGame();
 }
 
 function getFullyClearedRows() {
@@ -1263,6 +1394,7 @@ async function clearPair(a, b, result) {
   }
   updateMessage(message);
   render();
+  saveCurrentGame();
 
   // Run the visual match animation without blocking further moves when safe.
   animateMatch(a, b, result).then(async () => {
@@ -1283,6 +1415,7 @@ async function clearPair(a, b, result) {
       removeRowsByCellIds(clearedRowCellIds);
       refreshRowAnimationState();
       render();
+      saveCurrentGame();
       await wait(40);
     }
 
@@ -1290,6 +1423,7 @@ async function clearPair(a, b, result) {
       await completeStage({ awardBonus: false });
     } else {
       render();
+      saveCurrentGame();
       checkNoMovesAutoFail();
     }
   });
@@ -1320,6 +1454,7 @@ async function completeStage(options = {}) {
   state.stageIntro = false;
   state.transitioning = false;
   render();
+  saveCurrentGame();
 }
 
 function handleCellClick(index) {
@@ -1333,12 +1468,14 @@ function handleCellClick(index) {
   if (state.selected === null) {
     state.selected = index;
     render();
+    saveCurrentGame();
     return;
   }
 
   if (state.selected === index) {
     state.selected = null;
     render();
+    saveCurrentGame();
     return;
   }
 
@@ -1370,6 +1507,7 @@ function handleCellClick(index) {
     ? 'Those numbers match, but the numbers in the way must be cleared first.'
     : 'Those numbers match, but they do not connect from here.');
   render();
+  saveCurrentGame();
   setTimeout(() => {
     state.blockedCells = [];
     render();
@@ -1426,6 +1564,7 @@ async function addMoreNumbers() {
   const word = state.addsRemaining === 1 ? 'add' : 'adds';
   updateMessage(`Added ${values.length} numbers in the same order. ${state.addsRemaining} ${word} left.`);
   render();
+  saveCurrentGame();
 
   await animateAddNumbers(addPlan, runToken);
   if (runToken !== state.gameToken) return;
@@ -1436,6 +1575,7 @@ async function addMoreNumbers() {
   });
   state.addAnimating = false;
   render();
+  saveCurrentGame();
   checkNoMovesAutoFail();
 
   requestAnimationFrame(() => {
@@ -1445,6 +1585,7 @@ async function addMoreNumbers() {
 }
 
 function loseStage() {
+  state.activeGame = false;
   state.lost = true;
   state.selected = null;
   state.hintPair = null;
@@ -1459,6 +1600,7 @@ function loseStage() {
   state.addBluePulse = new Set();
   state.stageIntro = false;
   updateMessage('Game completed.');
+  clearSavedGame();
   render();
   showGameOverScreen();
 }
@@ -1475,11 +1617,13 @@ function useHint() {
     void els.addBtn.offsetWidth;
     els.addBtn.classList.add('pulse');
     render();
+    saveCurrentGame();
     return;
   }
   state.hintPair = [pair.a, pair.b];
   updateMessage(`Hint: ${state.board[pair.a].value} and ${state.board[pair.b].value} can clear.`);
   render();
+  saveCurrentGame();
 }
 
 function renderDigits() {
@@ -1548,6 +1692,7 @@ function difficultyName() {
 }
 
 function renderDifficultyCards() {
+  updateContinueButton();
   if (!els.difficultyButtons) return;
 
   els.difficultyButtons.forEach(button => {
@@ -1625,6 +1770,7 @@ function showHome() {
   els.gameScreen.classList.add('hidden');
   els.homeScreen.classList.remove('hidden');
   if (els.homeBestScore) els.homeBestScore.textContent = state.allTime.toLocaleString();
+  updateContinueButton();
   renderDifficultyCards();
 }
 
@@ -1636,6 +1782,7 @@ function startGame(difficultyKey) {
   }
 
   state.gameToken += 1;
+  state.activeGame = true;
   state.difficultyKey = requestedDifficulty;
   state.stage = 1;
   state.score = 0;
@@ -1656,6 +1803,7 @@ function startGame(difficultyKey) {
 }
 
 function endGameToHome() {
+  saveCurrentGame();
   showHome();
 }
 
@@ -1816,11 +1964,21 @@ preventGameDoubleTapZoom();
 els.addBtn.addEventListener('click', addMoreNumbers);
 els.hintBtn.addEventListener('click', useHint);
 els.backBtn.addEventListener('click', endGameToHome);
+if (els.continueGameBtn) els.continueGameBtn.addEventListener('click', restoreSavedGame);
 if (els.copyBoardBtn) els.copyBoardBtn.addEventListener('click', copyBoardState);
 if (els.gameOverNewGame) els.gameOverNewGame.addEventListener('click', () => startGame(state.difficultyKey));
-if (els.gameOverMain) els.gameOverMain.addEventListener('click', showHome);
+if (els.gameOverMain) els.gameOverMain.addEventListener('click', () => {
+  state.activeGame = false;
+  clearSavedGame();
+  showHome();
+});
 els.difficultyButtons.forEach(button => {
   button.addEventListener('click', () => startGame(button.dataset.difficulty));
+});
+
+window.addEventListener('pagehide', saveCurrentGame);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveCurrentGame();
 });
 
 render();
