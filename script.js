@@ -140,6 +140,8 @@ const els = {
   backBtn: document.getElementById('backBtn'),
   addCount: document.getElementById('addCount'),
   rulesText: document.getElementById('rulesText'),
+  rulesMultiplier: document.getElementById('rulesMultiplier'),
+  rulesSubtext: document.getElementById('rulesSubtext'),
   copyBoardBtn: document.getElementById('copyBoardBtn'),
   confirmNewGameModal: document.getElementById('confirmNewGameModal'),
   confirmStartNewGame: document.getElementById('confirmStartNewGame'),
@@ -394,7 +396,21 @@ function updateRulesText() {
   if (!els.rulesText) return;
   const factor = scoreFactor();
   const diff = currentDifficulty();
-  els.rulesText.textContent = `${diff.label} Stage ${state.stage}: Adjacent +${1 * factor} • wrap +${2 * factor} • separated +${4 * factor} • line +${10 * factor} • field +${150 * factor}`;
+  const scores = [
+    ['Touch', 1 * factor],
+    ['Wrap', 2 * factor],
+    ['Open', 4 * factor],
+    ['Line', 10 * factor],
+    ['Field', 150 * factor],
+  ];
+  els.rulesText.innerHTML = scores
+    .map(([label, points]) => `<span><strong>+${points.toLocaleString()}</strong><em>${label}</em></span>`)
+    .join('');
+  if (els.rulesMultiplier) els.rulesMultiplier.textContent = `${factor.toLocaleString()}×`;
+  if (els.rulesSubtext) {
+    const difficultyMultiplier = diff.scoreMultiplier || 1;
+    els.rulesSubtext.textContent = `${diff.label} · Stage ${state.stage} · ${difficultyMultiplier}× difficulty`;
+  }
 }
 
 function shuffledDigits(rand) {
@@ -1503,6 +1519,7 @@ function handleCellClick(index) {
     state.selected = b;
     updateMessage(`Selected ${cellB.value}. Find the same number or one that adds to 10.`);
     render();
+    saveCurrentGame();
     return;
   }
 

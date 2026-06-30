@@ -9,11 +9,11 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Number Match" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="build-version" content="newgame10" />
+  <meta name="build-version" content="hint12" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css?v=newgame10" />
+  <link rel="stylesheet" href="styles.css?v=hint12" />
 </head>
 <body>
   <main class="phone-app">
@@ -105,8 +105,18 @@
       </section>
 
       <section class="rules-card">
-        <b>Scoring</b>
-        <span id="rulesText">Basic Stage 1: Adjacent +1 • wrap +2 • separated +4 • line +10 • field +150. Scores scale by stage and difficulty.</span>
+        <div class="rules-header">
+          <b>Scoring</b>
+          <span id="rulesMultiplier" class="rules-multiplier">1×</span>
+        </div>
+        <div id="rulesText" class="rules-mini-grid" aria-label="Scoring values">
+          <span><strong>+1</strong><em>Touch</em></span>
+          <span><strong>+2</strong><em>Wrap</em></span>
+          <span><strong>+4</strong><em>Open</em></span>
+          <span><strong>+10</strong><em>Line</em></span>
+          <span><strong>+150</strong><em>Field</em></span>
+        </div>
+        <div id="rulesSubtext" class="rules-subtext">Stage × difficulty applied</div>
       </section>
 
       <section class="copy-board-section">
@@ -146,7 +156,7 @@
     <div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
   </main>
 
-  <script src="script.js?v=newgame10"></script>
+  <script src="script.js?v=hint12"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
